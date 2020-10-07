@@ -1,8 +1,10 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QMessageBox, QFileDialog, QLabel, QMainWindow, QAction, QHBoxLayout, QVBoxLayout
+from PyQt5.QtWidgets import *
 from PyQt5.QtCore import QCoreApplication
 from PyQt5 import QtGui
 import cv2
+from vtk import *
+from vtk.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 
 
 class MyWindow(QMainWindow):
@@ -11,11 +13,12 @@ class MyWindow(QMainWindow):
         self.image_path = ""
         self.image = ""
         self.label_image = QLabel(self)
-        self.label_model = QLabel(self)
+        self.frame_model = QFrame(self)
+        # self.label_model = QLabel(self)
         self.label_image_width = 400
         self.label_image_height = 400
         self.ui()  # 添加菜单栏，可以打开本地图片
-        self.process_image()
+
 
     def ui(self):
         menubar = self.menuBar()
@@ -31,13 +34,24 @@ class MyWindow(QMainWindow):
         # self.label_image.move(0, menubar.height())
         self.label_image.setStyleSheet("QLabel{background:white;}")
 
-        self.label_model.setText("显示模型")
-        self.label_model.setFixedSize(self.label_image_width, self.label_image_height)
-        self.label_model.setStyleSheet("QLabel{background:white;}")
+        # self.label_model.setText("显示模型")
+        # self.label_model.setFixedSize(self.label_image_width, self.label_image_height)
+        # self.label_model.setStyleSheet("QLabel{background:white;}")
+
+        vl = QVBoxLayout()
+        vtkWidget = QVTKRenderWindowInteractor()
+        vl.addWidget(vtkWidget)
+        self.ren = vtkRenderer()
+        self.ren.SetBackground(0.01, 0.2, 0.01)
+        vtkWidget.GetRenderWindow().AddRenderer(self.ren)
+        self.iren = vtkWidget.GetRenderWindow().GetInteractor()
+
+        self.iren.Initialize()
+        self.frame_model.setLayout(vl)
 
         hbox = QHBoxLayout()
         hbox.addWidget(self.label_image)
-        hbox.addWidget(self.label_model)
+        hbox.addWidget(self.frame_model)
 
         vbox = QVBoxLayout()
         vbox.addLayout(hbox)
@@ -49,10 +63,31 @@ class MyWindow(QMainWindow):
         self.setWindowTitle('2Dto3D')
         self.show()
 
+    def load_obj(self, path):
+        # Create source
+        filename = path
+        reader = vtkOBJReader()
+        reader.SetFileName(filename)
+        reader.Update()
+
+        # Create a mapper
+        mapper = vtkPolyDataMapper()
+        mapper.SetInputConnection(reader.GetOutputPort())
+
+        # Create an actor
+        actor = vtkActor()
+
+        actor.SetMapper(mapper)
+
+        self.ren.AddActor(actor)
+        self.ren.ResetCamera()
+
+
     def open_image(self):
         self.image_path, _ = QFileDialog.getOpenFileName(self, "打开图片", "", "Image files(*.jpg *.png)")
         self.image = cv2.imread(self.image_path)
         self.show_image()
+        self.process_image()
 
     def show_image(self):
         height, width = self.image.shape[0], self.image.shape[1]
